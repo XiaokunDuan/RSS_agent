@@ -1,0 +1,5 @@
+feedparser
+langchain-core
+langchain-google-genai
+langchain_classic
+markdown

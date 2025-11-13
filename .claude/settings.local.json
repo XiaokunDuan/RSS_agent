@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:aisel.aisnet.org)",
+      "WebFetch(domain:onlinelibrary.wiley.com)",
+      "Bash(GOOGLE_API_KEY='AIzaSyCiL4er3t24uKgU-3fjZbgv4-6APeWnpMU' python3:*)",
+      "Bash(pip install:*)",
+      "Bash(export:*)",
+      "Bash(python3:*)",
+      "Bash(./.venv/bin/python3:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
