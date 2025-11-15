@@ -7,7 +7,12 @@
       "Bash(pip install:*)",
       "Bash(export:*)",
       "Bash(python3:*)",
-      "Bash(./.venv/bin/python3:*)"
+      "Bash(./.venv/bin/python3:*)",
+      "WebSearch",
+      "Bash(/Users/dxk/miniconda3/bin/python3:*)",
+      "Bash(rm:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nCommit all modified and untracked files.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")"
     ],
     "deny": [],
     "ask": []
