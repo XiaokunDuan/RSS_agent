@@ -6,6 +6,10 @@ from bs4 import BeautifulSoup
 import requests
 import re
 from datetime import datetime
+import time
+from bs4 import BeautifulSoup
+from selenium.common.exceptions import WebDriverException
+
 
 # --- 全局配置 ---
 # 定义每个期刊的基础URL和抓取类型
@@ -37,10 +41,11 @@ def get_selenium_driver():
     # uc=True 启用 undetected_chromedriver，headless=True 无头模式
     return Driver(uc=True, headless=True)
 
-# --- JMIS 抓取函数 (Selenium) ---
-def scrape_jmis(target_year, num_latest_issues=DEFAULT_NUM_LATEST_ISSUES):
+# --- EJIS 抓取函数 (Selenium) ---
+# 注意：原代码中的函数名为 scrape_jmis，根据您的配置应该是 EJIS，这里已更正
+def scrape_ejis(target_year, num_latest_issues=DEFAULT_NUM_LATEST_ISSUES):
     """
-    抓取 JMIS 期刊指定年份最新的 N 期文章数据。
+    抓取 EJIS 期刊指定年份最新的 N 期文章数据。
     """
     journal_name = "EJIS"
     print(f"[{journal_name}] 正在开始抓取，目标年份：{target_year}，最新期数：{num_latest_issues}。")
@@ -71,6 +76,7 @@ def scrape_jmis(target_year, num_latest_issues=DEFAULT_NUM_LATEST_ISSUES):
                 issue_list_ul = volume_button.find_next_sibling('ul')
                 if issue_list_ul:
                     links = issue_list_ul.find_all('a', href=True)
+                    # 如果 num_latest_issues 设置得很大，这里会获取所有找到的链接
                     latest_links = links[:num_latest_issues]
                     print(f"[{journal_name}] 找到 {len(links)} 期，选择最新的 {len(latest_links)} 期。")
 
@@ -384,7 +390,9 @@ def scrape_mmis(target_year, num_latest_issues=DEFAULT_NUM_LATEST_ISSUES):
 # --- ISR 抓取函数 (Selenium) ---
 def scrape_isr(target_year, num_latest_issues=DEFAULT_NUM_LATEST_ISSUES):
     """
-    抓取 ISR 期刊指定年份最新的 N 期文章数据。
+    【已更新】抓取 ISR 期刊指定年份最新的 N 期文章数据。
+    - 只抓取 "Research Articles" 和 "Research Notes" 栏目。
+    - 增加了网络错误的简单重试机制。
     """
     journal_name = "ISR"
     print(f"[{journal_name}] 正在开始抓取，目标年份：{target_year}，最新期数：{num_latest_issues}。")
@@ -395,99 +403,108 @@ def scrape_isr(target_year, num_latest_issues=DEFAULT_NUM_LATEST_ISSUES):
     try:
         driver = get_selenium_driver()
         print(f"[{journal_name}] 正在打开期刊主页: {base_url}")
-        driver.get(base_url) # 直接访问期刊主页
+        driver.get(base_url)
         print(f"[{journal_name}] 等待20秒页面加载...")
-        sleep(20) # 等待页面加载
+        sleep(20)
 
         issue_urls_to_visit = []
         try:
-            # 模拟点击 "ARCHIVES" 按钮
-            archives_button_selector = 'a.loi__archive'
+            # 导航到指定年份的期数列表
             print(f"[{journal_name}] 尝试点击 'ARCHIVES' 按钮...")
-            driver.click(archives_button_selector)
-
-            # 模拟点击十年按钮 (例如 2020-2029)
+            driver.click('a.loi__archive')
+            
             decade = str(target_year)[:3] + "0"
             decade_selector = f'a[data-url="d{decade}"]'
-            print(f"[{journal_name}] 等待十年标签 ('{decade}s') 可见...")
-            driver.wait_for_element_visible(decade_selector, timeout=10)
-            print(f"[{journal_name}] 尝试点击十年标签: '{decade}s'...")
-            driver.click(decade_selector)
+            print(f"[{journal_name}] 等待并点击十年标签 ('{decade}s')...")
+            driver.wait_for_element_visible(decade_selector, timeout=15).click()
             sleep(3)
 
-            # 模拟点击年份按钮
             year_selector = f'a[data-url="d{decade}.y{target_year}"]'
-            print(f"[{journal_name}] 等待年份标签 ('{target_year}') 可见...")
-            driver.wait_for_element_visible(year_selector, timeout=10)
-            print(f"[{journal_name}] 尝试点击年份标签: '{target_year}'...")
-            driver.click(year_selector)
-
-            # 等待期数列表出现
+            print(f"[{journal_name}] 等待并点击年份标签 ('{target_year}')...")
+            driver.wait_for_element_visible(year_selector, timeout=15).click()
+            
             issues_list_selector = "ul.issue-items"
             print(f"[{journal_name}] 等待期数列表出现...")
             driver.wait_for_element_visible(issues_list_selector, timeout=15)
             sleep(2)
 
-            page_source = driver.get_page_source()
-            soup = BeautifulSoup(page_source, 'html.parser')
-
+            soup = BeautifulSoup(driver.get_page_source(), 'html.parser')
             issue_list_container = soup.find('ul', class_='issue-items')
             if issue_list_container:
                 issue_links = issue_list_container.find_all('a', class_='issue-info__vol-issue')
                 latest_links = issue_links[:num_latest_issues]
-                print(f"[{journal_name}] 找到 {len(issue_links)} 期，选择最新的 {len(latest_links)} 期。")
-
+                print(f"[{journal_name}] 找到 {len(issue_links)} 期，选择最新的 {len(latest_links)} 期进行处理。")
                 for link in latest_links:
-                    full_url = "https://pubsonline.informs.org" + link['href']
-                    issue_urls_to_visit.append(full_url)
+                    issue_urls_to_visit.append("https://pubsonline.informs.org" + link['href'])
             else:
                 print(f"[{journal_name}] 未找到期数列表容器。")
 
         except Exception as e:
-            print(f"[{journal_name}] 处理年份 {target_year} 时发生错误: {e}")
+            print(f"[{journal_name}] 导航至年份/期数列表时发生错误: {e}")
 
         for issue_url in issue_urls_to_visit:
             try:
                 print(f"[{journal_name}] 导航到期数目录页: {issue_url}")
                 driver.get(issue_url)
                 sleep(10)
+                issue_soup = BeautifulSoup(driver.get_page_source(), 'html.parser')
 
-                issue_html = driver.get_page_source()
-                issue_soup = BeautifulSoup(issue_html, 'html.parser')
+                # 【核心修改 1/2】: 只查找特定栏目下的文章
+                target_sections = ["Research Articles", "Research Notes"]
+                articles_to_scrape = []
+                
+                section_headings = issue_soup.find_all('h2', class_='toc__heading')
+                for heading in section_headings:
+                    section_title = heading.get_text(strip=True)
+                    if section_title in target_sections:
+                        print(f"[{journal_name}] 找到目标栏目: '{section_title}'")
+                        # 查找该标题后的所有同级文章条目，直到遇见下一个标题
+                        current_element = heading.find_next_sibling()
+                        while current_element and current_element.name != 'h2':
+                            if current_element.name == 'div' and 'issue-item' in current_element.get('class', []):
+                                articles_to_scrape.append(current_element)
+                            current_element = current_element.find_next_sibling()
+                
+                print(f"[{journal_name}] 在目标栏目中找到 {len(articles_to_scrape)} 篇文章进行抓取。")
 
-                article_entries = issue_soup.select('div.issue-item')
-                print(f"[{journal_name}] 在当前期数中找到 {len(article_entries)} 篇文章。")
-
-                for entry in article_entries:
+                for entry in articles_to_scrape:
                     title_tag = entry.select_one('h5.issue-item__title > a')
-                    if title_tag and title_tag.has_attr('href'):
-                        title = title_tag.get_text(strip=True)
-                        link = "https://pubsonline.informs.org" + title_tag['href']
-
+                    if not (title_tag and title_tag.has_attr('href')):
+                        continue
+                    
+                    title = title_tag.get_text(strip=True)
+                    link = "https://pubsonline.informs.org" + title_tag['href']
+                    abs_link = link.replace('/full/', '/abs/')
+                    
+                    # 【核心修改 2/2】: 增加网络错误重试逻辑
+                    for attempt in range(2): # 最多尝试2次
                         try:
                             print(f"[{journal_name}] -> 抓取文章: {title[:70]}...")
-                            # 通常访问文章的摘要页 (abs) 比完整页 (full) 更快更稳定
-                            abs_link = link.replace('/full/', '/abs/')
                             driver.get(abs_link)
                             sleep(5)
-
-                            article_html = driver.get_page_source()
-                            article_soup = BeautifulSoup(article_html, 'html.parser')
-
-                            # 摘要在 div.abstractSection p 标签中
+                            article_soup = BeautifulSoup(driver.get_page_source(), 'html.parser')
                             abstract_div = article_soup.find('div', class_='abstractSection')
                             abstract = abstract_div.find('p').get_text(strip=True) if abstract_div and abstract_div.find('p') else "Abstract not found"
-
+                            
                             all_articles_data.append({
-                                'journal': journal_name,
-                                'year': target_year,
-                                'title': title,
-                                'link': link,
-                                'abstract': abstract
+                                'journal': journal_name, 'year': target_year,
+                                'title': title, 'link': link, 'abstract': abstract
                             })
+                            break # 如果成功，就跳出重试循环
+
+                        except WebDriverException as e:
+                            print(f"[{journal_name}] -! ERROR (尝试 {attempt + 1}/2) 抓取 '{title[:50]}...' 时发生错误: {e.msg}")
+                            # 如果是网络错误且是第一次尝试，则等待后重试
+                            if "net::ERR_INTERNET_DISCONNECTED" in e.msg and attempt == 0:
+                                print(f"[{journal_name}] 检测到网络错误，等待30秒后重试...")
+                                sleep(30)
+                            else:
+                                break # 如果是其他错误或第二次尝试失败，则放弃
                         except Exception as article_error:
-                            print(f"[{journal_name}] -! ERROR 抓取文章 '{title[:50]}...' 时发生错误: {article_error}")
-                            continue
+                             print(f"[{journal_name}] -! ERROR (尝试 {attempt + 1}/2) 抓取 '{title[:50]}...' 时发生未知错误: {article_error}")
+                             break # 未知错误直接放弃
+
+
             except Exception as issue_error:
                 print(f"[{journal_name}] -! ERROR 处理期数 URL {issue_url} 时发生错误: {issue_error}")
                 continue
@@ -504,7 +521,7 @@ def run_all_scrapers(target_year=None, num_latest_issues=DEFAULT_NUM_LATEST_ISSU
     运行所有期刊的抓取器，并将所有数据合并保存到一个 CSV 文件中。
 
     :param target_year: 目标年份 (整数)。如果为 None，则默认为当前年份。
-    :param num_latest_issues: 对于支持抓取最新N期的网站 (JMIS, MMIS, ISR)，指定N的值。
+    :param num_latest_issues: 对于支持抓取最新N期的网站 (EJIS, MMIS, ISR)，指定N的值。
                               对于MISQ，此参数不适用，因为它总是抓取指定年份的所有期数。
     :param output_filename: 输出 CSV 文件的名称。如果为 None，则自动生成。
     """
@@ -514,11 +531,9 @@ def run_all_scrapers(target_year=None, num_latest_issues=DEFAULT_NUM_LATEST_ISSU
         print(f"未指定目标年份，默认为当前年份: {target_year}")
 
     if output_filename is None:
-        # 自动生成文件名，包含年份和是否抓取最新N期 (如果不是默认N期)
-        if num_latest_issues != DEFAULT_NUM_LATEST_ISSUES:
-            output_filename = f"combined_articles_{target_year}_custom_latest_{num_latest_issues}_issues.csv"
-        else:
-            output_filename = f"combined_articles_{target_year}.csv" if target_year == current_year and num_latest_issues == DEFAULT_NUM_LATEST_ISSUES else f"combined_articles_{target_year}_latest_{num_latest_issues}_issues.csv"
+        # 自动生成文件名
+        output_filename = f"combined_articles_{target_year}.csv"
+
 
     output_dir = "scraped_articles_data"
     if not os.path.exists(output_dir):
@@ -531,21 +546,23 @@ def run_all_scrapers(target_year=None, num_latest_issues=DEFAULT_NUM_LATEST_ISSU
     print(f"\n--- 正在开始统一抓取，目标年份: {target_year} --- ")
     print(f"所有数据将保存到: {output_path}\n")
 
-    # JMIS
-    jmis_data = scrape_jmis(target_year, num_latest_issues)
-    all_combined_articles.extend(jmis_data)
+    # # EJIS (原JMIS)
+    # ejis_data = scrape_ejis(target_year, num_latest_issues)
+    # all_combined_articles.extend(ejis_data)
 
-    # MISQ (总是抓取指定年份的所有期数，不使用 num_latest_issues)
-    misq_data = scrape_misq(target_year)
-    all_combined_articles.extend(misq_data)
+    # # MISQ (总是抓取指定年份的所有期数，不使用 num_latest_issues)
+    # misq_data = scrape_misq(target_year)
+    # all_combined_articles.extend(misq_data)
 
-    # MMIS
-    mmis_data = scrape_mmis(target_year, num_latest_issues)
-    all_combined_articles.extend(mmis_data)
+    # # MMIS
+    # mmis_data = scrape_mmis(target_year, num_latest_issues)
+    # all_combined_articles.extend(mmis_data)
 
+    # 【修改 1/2】: 注释掉对 ISR 的抓取调用
     # ISR
     isr_data = scrape_isr(target_year, num_latest_issues)
     all_combined_articles.extend(isr_data)
+    print("\n--- 注意：已根据要求跳过对 ISR 的抓取。 ---\n")
 
     # 将所有数据写入单个 CSV 文件
     if all_combined_articles:
@@ -568,24 +585,14 @@ if __name__ == "__main__":
     print(f"请确保你已经安装了所有依赖 (seleniumbase, beautifulsoup4, requests)。")
     print(f"并配置了 Chrome 浏览器以使用 SeleniumBase (推荐使用 Chrome 浏览器)。")
 
-    # --- 小程度测试示例 (默认抓取当前年份的最新两期) ---
-    # 运行 `python combined_scraper.py` 即可。
-    print("\n--- 运行默认小测试：抓取当前年份的最新两期 --- ")
-    run_all_scrapers()
+    # 【修改 2/2】: 修改这里的参数来抓取 2025 年的所有期数
+    # target_year 设置为 2025
+    # num_latest_issues 设置为一个大数（如 99）来确保获取全年所有已发布的期数
+    TARGET_YEAR_TO_SCRAPE = 2025
+    ISSUES_TO_SCRAPE_PER_JOURNAL = 99 # 设置一个大数以抓取所有期数
 
-    # --- 其他测试示例 (你可以取消注释来测试) ---
-
-    # # 示例 1: 抓取 2024 年的最新两期
-    # print("\n--- 运行小测试：抓取 2024 年的最新两期 --- ")
-    # run_all_scrapers(target_year=2024)
-
-    # # 示例 2: 抓取 2023 年的所有 MISQ 和其他期刊的最新3期
-    # # 注意：MISQ 不受 num_latest_issues 影响，总是抓取指定年份的所有期数。
-    # print("\n--- 运行小测试：抓取 2023 年的所有 MISQ 和其他期刊的最新3期 --- ")
-    # run_all_scrapers(target_year=2023, num_latest_issues=3)
-
-    # # 示例 3: 抓取当前年份的所有 MISQ 和其他期刊的最新5期
-    # print("\n--- 运行小测试：抓取当前年份的所有 MISQ 和其他期刊的最新5期 --- ")
-    # run_all_scrapers(num_latest_issues=5)
-
-    # 你可以根据需要修改 main 函数中的调用来测试不同的场景。
+    print(f"\n--- 准备执行任务：抓取 {TARGET_YEAR_TO_SCRAPE} 年的所有期数 (不包括ISR) --- ")
+    run_all_scrapers(
+        target_year=TARGET_YEAR_TO_SCRAPE,
+        num_latest_issues=ISSUES_TO_SCRAPE_PER_JOURNAL
+    )

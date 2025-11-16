@@ -1,4 +1,3 @@
-
 import pandas as pd
 import os
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -11,17 +10,19 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # 从环境变量或直接字符串获取API密钥
+# 警告：直接在代码中写入API密钥存在安全风险。强烈建议使用环境变量。
 # 请将 "YOUR_GOOGLE_API_KEY" 替换为您的真实密钥，如果不是在 .env 文件中的话
 GOOGLE_API_KEY = "AIzaSyAf3KUDleD3_MizuUgk8K5sJa1qZsXUCNM"
 
 
 # 初始化 Google Generative AI 模型
-model = ChatGoogleGenerativeAI(model="gemini-2.5-flash", google_api_key=GOOGLE_API_KEY)
+model = ChatGoogleGenerativeAI(model="gemini-1.5-flash", google_api_key=GOOGLE_API_KEY)
 
 
 def analyze_single_paper(paper_data):
     """
     通过一次API调用，对单篇论文的数据进行完整的四步分析，并返回中文分析结果。
+    （此函数无需更改）
     """
     # 将论文数据格式化为字符串，以便输入模型
     paper_context = f"Title: {paper_data['title']}\nAbstract: {paper_data['abstract']}"
@@ -95,7 +96,7 @@ def analyze_single_paper(paper_data):
 def generate_analysis_report(file_path, num_rows=5):
     """
     读取CSV文件，逐篇分析论文，并生成一份完整的中文分析报告。
-    （此函数无需更改）
+    【新增逻辑】每处理3篇文章，就将结果追加写入MD文件，以防程序中断丢失数据。
     """
     try:
         df = pd.read_csv(file_path)
@@ -107,29 +108,55 @@ def generate_analysis_report(file_path, num_rows=5):
         print(f"成功读取CSV文件: {file_path}")
         print(f"准备分析 {len(df_to_process)} 篇文章...\n")
 
-        report_content = "# 论文数据分析报告\n\n"
+        report_filename = "per_article_analysis_report_zh_optimized.md"
+        
+        # 【新增改动 1/4】: 在循环开始前，先用'w'模式清空或创建文件，并写入主标题。
+        # 这样可以确保每次运行都是一个全新的报告。
+        with open(report_filename, "w", encoding="utf-8") as f:
+            f.write("# 论文数据分析报告\n\n")
+
+        # 【新增改动 2/4】: 初始化一个缓冲区和一个计数器。
+        articles_buffer = ""  # 用于暂存每3篇文章的内容
+        processed_count = 0   # 记录已处理的文章数量
 
         for index, row in df_to_process.iterrows():
             print(f"--- 正在分析第 {index + 1} 篇文章: {row['title']} ---")
             
             variables, acquisition, processing, theories = analyze_single_paper(row)
             
-            report_content += f"## {index + 1}. {row['title']}\n\n"
-            report_content += "### 1. 主要研究变量\n"
-            report_content += f"{variables}\n\n"
-            report_content += "### 2. 数据获取难度\n"
-            report_content += f"{acquisition}\n\n"
-            report_content += "### 3. 数据处理方法与成本\n"
-            report_content += f"{processing}\n\n"
-            report_content += "### 4. 相关理论\n"
-            report_content += f"{theories}\n\n"
-            report_content += "---\n\n"
+            # 将新分析的文章内容添加到缓冲区，而不是直接加到总报告中
+            articles_buffer += f"## {index + 1}. {row['title']}\n\n"
+            articles_buffer += "### 1. 主要研究变量\n"
+            articles_buffer += f"{variables}\n\n"
+            articles_buffer += "### 2. 数据获取难度\n"
+            articles_buffer += f"{acquisition}\n\n"
+            articles_buffer += "### 3. 数据处理方法与成本\n"
+            articles_buffer += f"{processing}\n\n"
+            articles_buffer += "### 4. 相关理论\n"
+            articles_buffer += f"{theories}\n\n"
+            articles_buffer += "---\n\n"
             print(f"--- 第 {index + 1} 篇文章分析完成 ---\n")
 
-        report_filename = "per_article_analysis_report_zh_optimized.md"
-        with open(report_filename, "w", encoding="utf-8") as f:
-            f.write(report_content)
-        
+            processed_count += 1
+
+            # 【新增改动 3/4】: 每处理3篇文章，就执行一次写入操作。
+            if processed_count % 3 == 0:
+                print(f"--- 已处理 {processed_count} 篇文章，正在保存进度到 {report_filename} ---")
+                # 使用 'a' (append) 模式将缓冲区内容追加到文件中
+                with open(report_filename, "a", encoding="utf-8") as f:
+                    f.write(articles_buffer)
+                
+                # 写入后清空缓冲区，为下一批文章做准备
+                articles_buffer = ""
+                print(f"--- 进度保存完毕 ---\n")
+
+        # 【新增改动 4/4】: 循环结束后，检查缓冲区中是否还有剩余的文章（总数不是3的倍数时）。
+        if articles_buffer:
+            print(f"--- 正在保存最后剩余的文章到 {report_filename} ---")
+            with open(report_filename, "a", encoding="utf-8") as f:
+                f.write(articles_buffer)
+            print(f"--- 最后保存完成 ---\n")
+
         print(f"报告生成完毕！已保存至: {report_filename}")
 
     except FileNotFoundError:
@@ -145,6 +172,7 @@ if __name__ == "__main__":
     csv_file_path = "/Users/dxk/Repos/learning/rss_agent/headless_browser_tests/seleniumbase_uc_test/scraped_articles_data/combined_articles_2025.csv"
     
     # --- 设置您想分析的论文数量 (设置为 None 可分析所有论文) ---
-    articles_to_analyze = 3
+    # 例如，设置为10，它会在处理第3、6、9篇后各保存一次，最后再保存第10篇。
+    articles_to_analyze = 10 
 
     generate_analysis_report(csv_file_path, num_rows=articles_to_analyze)
