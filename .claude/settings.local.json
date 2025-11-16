@@ -3,7 +3,7 @@
     "allow": [
       "WebFetch(domain:aisel.aisnet.org)",
       "WebFetch(domain:onlinelibrary.wiley.com)",
-      "Bash(GOOGLE_API_KEY='AIzaSyCiL4er3t24uKgU-3fjZbgv4-6APeWnpMU' python3:*)",
+      "Bash(GOOGLE_API_KEY='AIzaSyDqEL9-jQzkGm_zXRZXE8mqSSSGJGFk4rI' python3:*)",
       "Bash(pip install:*)",
       "Bash(export:*)",
       "Bash(python3:*)",
@@ -12,7 +12,14 @@
       "Bash(/Users/dxk/miniconda3/bin/python3:*)",
       "Bash(rm:*)",
       "Bash(git add:*)",
-      "Bash(git commit -m \"$(cat <<''EOF''\nCommit all modified and untracked files.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")"
+      "Bash(git commit -m \"$(cat <<''EOF''\nCommit all modified and untracked files.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git push)",
+      "Bash(git config:*)",
+      "WebFetch(domain:www.tandfonline.com)",
+      "Bash(python:*)",
+      "Bash(sudo mv:*)",
+      "mcp__ide__executeCode",
+      "Bash(curl:*)"
     ],
     "deny": [],
     "ask": []

@@ -55,7 +55,8 @@ Original Abstract: "{text}"
     # ==============================================================================
     MEDIA_SOURCES = {
         "MIS Quarterly (MISQ)": "https://aisel.aisnet.org/misq/recent.rss",
-        "Information Systems Journal (ISJ)": "https://onlinelibrary.wiley.com/feed/13652575/most-recent"
+        "Information Systems Journal (ISJ)": "https://onlinelibrary.wiley.com/feed/13652575/most-recent",
+        "European Journal of Information Systems (EJIS)": "https://www.tandfonline.com/feed/rss/tjis20"
     }
 
     # ==============================================================================
