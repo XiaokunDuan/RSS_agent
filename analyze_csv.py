@@ -16,7 +16,7 @@ GOOGLE_API_KEY = "AIzaSyAf3KUDleD3_MizuUgk8K5sJa1qZsXUCNM"
 
 
 # 初始化 Google Generative AI 模型
-model = ChatGoogleGenerativeAI(model="gemini-1.5-flash", google_api_key=GOOGLE_API_KEY)
+model = ChatGoogleGenerativeAI(model="gemini-2.5-flash", google_api_key=GOOGLE_API_KEY)
 
 
 def analyze_single_paper(paper_data):
@@ -173,6 +173,6 @@ if __name__ == "__main__":
     
     # --- 设置您想分析的论文数量 (设置为 None 可分析所有论文) ---
     # 例如，设置为10，它会在处理第3、6、9篇后各保存一次，最后再保存第10篇。
-    articles_to_analyze = 10 
+    articles_to_analyze = 62
 
     generate_analysis_report(csv_file_path, num_rows=articles_to_analyze)
