@@ -25,7 +25,8 @@
       "Bash(then echo \"GOOGLE_API_KEY is NOT set.\")",
       "Bash(else echo \"GOOGLE_API_KEY is SET.\")",
       "Bash(fi:*)",
-      "Bash(ping:*)"
+      "Bash(ping:*)",
+      "Bash(git commit:*)"
     ],
     "deny": [],
     "ask": []
