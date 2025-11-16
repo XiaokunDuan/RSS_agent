@@ -3,7 +3,7 @@
     "allow": [
       "WebFetch(domain:aisel.aisnet.org)",
       "WebFetch(domain:onlinelibrary.wiley.com)",
-      "Bash(GOOGLE_API_KEY='AIzaSyDqEL9-jQzkGm_zXRZXE8mqSSSGJGFk4rI' python3:*)",
+      "Bash(GOOGLE_API_KEY='AIzaSyDt9DpVj4sTR7GlYwleqU7-4pX51zA7e1M' python3:*)",
       "Bash(pip install:*)",
       "Bash(export:*)",
       "Bash(python3:*)",
@@ -19,7 +19,13 @@
       "Bash(python:*)",
       "Bash(sudo mv:*)",
       "mcp__ide__executeCode",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(pip uninstall:*)",
+      "Bash(if [ -z \"$GOOGLE_API_KEY\" ])",
+      "Bash(then echo \"GOOGLE_API_KEY is NOT set.\")",
+      "Bash(else echo \"GOOGLE_API_KEY is SET.\")",
+      "Bash(fi:*)",
+      "Bash(ping:*)"
     ],
     "deny": [],
     "ask": []
